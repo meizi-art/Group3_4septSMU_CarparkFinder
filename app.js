@@ -1054,6 +1054,8 @@ window.switchToRoutesTab = function () {
   switchTab('routes');
 };
 
+let searchDebounceTimer = null;
+
 /**
  * Initializes search input listeners and quick destination pills
  */
@@ -1064,11 +1066,34 @@ function initSearchAndFilters() {
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       const val = e.target.value.trim().toLowerCase();
-      handleDestinationSearch(val);
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+
+      if (!val) {
+        return;
+      }
+
+      // Fast check for exact / prefix local matches
+      const instantLocalMatch = SG_DESTINATIONS_DB.find((dest) =>
+        dest.aliases.some((alias) => alias === val || val.startsWith(alias) || alias.startsWith(val))
+      );
+      if (instantLocalMatch) {
+        handleDestinationSearch(val);
+        return;
+      }
+
+      // Debounce network/server queries by 350ms to avoid 429 rate-limiting
+      searchDebounceTimer = setTimeout(() => {
+        if (val.length >= 2) {
+          handleDestinationSearch(val);
+        }
+      }, 350);
     });
 
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
+        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+        const val = searchInput.value.trim().toLowerCase();
+        if (val) handleDestinationSearch(val);
         searchInput.blur();
       }
     });

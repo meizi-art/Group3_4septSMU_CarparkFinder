@@ -71,13 +71,21 @@ export default async function handler(req, res) {
       return {
         name,
         endpoint: url.split("?")[0],
-        status: response.ok ? "UP" : response.status === 401 ? "UNAUTHORIZED" : "ERROR",
+        status: response.ok
+          ? "UP"
+          : response.status === 401
+          ? "UNAUTHORIZED"
+          : response.status === 429
+          ? "RATE_LIMITED"
+          : "ERROR",
         httpStatus: response.status,
         latencyMs,
         details: response.ok
           ? "Operational"
           : response.status === 401
           ? "Missing or invalid AccountKey"
+          : response.status === 429
+          ? "Upstream rate limited (Offline GeoDB fallback active)"
           : `HTTP ${response.status}: ${response.statusText}`,
       };
     } catch (err) {
