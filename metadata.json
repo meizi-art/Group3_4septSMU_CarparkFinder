@@ -1,0 +1,6 @@
+{
+  "name": "ParkSmart SG - Singapore Carpark & Transit Intelligence",
+  "description": "Real-time Singapore carpark availability dashboard with live LTA Datamall telemetry, interactive maps, multimodal public transport alternatives, congestion event warnings, and AI travel insights.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

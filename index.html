@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Singapore Carpark Dashboard - LTA High Density</title>
+  <meta name="description" content="Singapore Carpark Dashboard featuring real-time LTA DataMall carpark availability, high-density discovery map, traffic impact alerts, multimodal transit alternatives, and AI mobility insights." />
+  <meta property="og:title" content="Singapore Carpark Dashboard - LTA High Density" />
+  <meta property="og:description" content="Singapore Carpark Dashboard featuring real-time LTA DataMall carpark availability, high-density discovery map, traffic impact alerts, multimodal transit alternatives, and AI mobility insights." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Google Fonts: Plus Jakarta Sans & Material Symbols -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+  <!-- Leaflet Interactive Maps CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Application High Density Stylesheet -->
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-container" id="app-root">
+
+    <!-- ====================================================================
+         TOP APP HEADER (LTA HIGH DENSITY BAR)
+         ==================================================================== -->
+    <header class="top-header" id="main-top-header">
+      <div class="header-brand">
+        <div class="header-lta-badge">LTA</div>
+        <h1 class="header-title">Singapore Carpark Dashboard</h1>
+      </div>
+
+      <!-- Integrated Search Input in Header -->
+      <div class="header-search-wrapper">
+        <span class="header-search-icon material-symbols-outlined">search</span>
+        <input 
+          type="text" 
+          class="header-search-input" 
+          id="search-destination-input"
+          aria-label="Search destination or 6-digit postal code"
+          placeholder="Enter 6-digit postal code (e.g. 039594) or address"
+          value="039594 (Downtown Core)"
+        />
+        <button class="header-search-clear" id="search-clear-btn" aria-label="Clear search">
+          <span class="material-symbols-outlined" style="font-size:16px;">cancel</span>
+        </button>
+      </div>
+
+      <div class="header-actions">
+        <!-- Explain This (AI) Button -->
+        <button class="btn-explain-ai-header" id="btn-explain-ai-header" onclick="triggerAiExplanationFromHeader()">
+          <span class="material-symbols-outlined" style="font-size:16px;">psychology</span>
+          <span>Explain This (AI)</span>
+        </button>
+
+        <!-- Live LTA API Telemetry Badge -->
+        <div class="live-badge" title="Synchronized with LTA Datamall Open Data">
+          <span class="pulse-dot"></span>
+          <span id="live-api-status-text">LIVE</span>
+        </div>
+
+        <button class="icon-button" id="btn-filter-settings" aria-label="Filter Options" onclick="showToast('Active radius: 800m around destination')">
+          <span class="material-symbols-outlined" style="font-size:18px;">tune</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sub-header bar with recent search pills -->
+    <div class="sub-header-bar">
+      <div class="recent-pills-row" aria-label="Recent Destinations">
+        <span class="recent-label">Recent:</span>
+        <button class="recent-pill" onclick="setDestinationFromRecent('Suntec City')">
+          <span class="material-symbols-outlined" style="font-size:12px; color:var(--color-lta-blue);">history</span>
+          Suntec City
+        </button>
+        <button class="recent-pill" onclick="setDestinationFromRecent('Marina Bay Sands')">
+          <span class="material-symbols-outlined" style="font-size:12px; color:var(--color-lta-blue);">history</span>
+          Marina Bay Sands
+        </button>
+        <button class="recent-pill" onclick="setDestinationFromRecent('Orchard Central')">
+          <span class="material-symbols-outlined" style="font-size:12px; color:var(--color-lta-blue);">history</span>
+          Orchard Central
+        </button>
+      </div>
+
+      <div class="filter-chips-row" aria-label="Vehicle Filters">
+        <button class="filter-chip active" data-filter="cars" id="chip-cars">
+          <span class="material-symbols-outlined" style="font-size:13px;">directions_car</span>
+          Cars
+        </button>
+        <button class="filter-chip" data-filter="motorcycles" id="chip-motorcycles">
+          <span class="material-symbols-outlined" style="font-size:13px;">two_wheeler</span>
+          Motorcycles
+        </button>
+        <button class="filter-chip" data-filter="heavy" id="chip-heavy">
+          <span class="material-symbols-outlined" style="font-size:13px;">local_shipping</span>
+          Heavy
+        </button>
+        <button class="filter-chip" data-filter="ev" id="chip-ev">
+          <span class="material-symbols-outlined" style="font-size:13px; color:#10b981;">bolt</span>
+          EV Charging
+        </button>
+        <button class="filter-chip" data-filter="mall" id="chip-mall">
+          <span class="material-symbols-outlined" style="font-size:13px;">storefront</span>
+          Near Malls
+        </button>
+        <button class="filter-chip" data-filter="radius" id="chip-radius">
+          <span class="material-symbols-outlined" style="font-size:13px;">radar</span>
+          Radius: 800m
+        </button>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         SCREEN 1: HIGH DENSITY CARPARK DASHBOARD & MAP
+         ==================================================================== -->
+    <div class="screen-view active" id="view-map" role="region" aria-label="Map Discovery Screen">
+      
+      <main class="high-density-grid">
+        
+        <!-- Left 8-Column Zone: Interactive Map & Traffic Impact Alert -->
+        <section class="dashboard-main-col">
+          
+          <!-- Map Stage Container -->
+          <div class="map-stage-container" id="map-stage-wrapper">
+            <div id="leaflet-map" aria-label="Interactive Singapore Carpark Map"></div>
+            
+            <!-- High Density Floating Map Legend Overlay -->
+            <div class="map-legend-overlay">
+              <div class="legend-card-header">Map Legend</div>
+              <div class="legend-item-pill">
+                <span class="legend-dot green"></span>
+                <span>Plenty (>50%)</span>
+              </div>
+              <div class="legend-item-pill">
+                <span class="legend-dot amber"></span>
+                <span>Moderate (10-50%)</span>
+              </div>
+              <div class="legend-item-pill">
+                <span class="legend-dot red"></span>
+                <span>High (&lt;10%)</span>
+              </div>
+            </div>
+
+            <!-- Floating Map Navigation Controls -->
+            <div class="map-controls-group">
+              <button class="map-control-btn" onclick="recenterMap()" aria-label="Re-center Map">
+                <span class="material-symbols-outlined">near_me</span>
+              </button>
+              <button class="map-control-btn" onclick="showToast('Layer active: Real-Time Lot Telemetry')" aria-label="Toggle Map Layers">
+                <span class="material-symbols-outlined">layers</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Traffic Impact Alert Banner -->
+          <div class="traffic-impact-banner" id="traffic-impact-box">
+            <div class="alert-icon-box">
+              <span class="material-symbols-outlined">warning</span>
+            </div>
+            <div class="alert-body-content">
+              <div class="alert-headline">Traffic Impact Alert</div>
+              <p class="alert-paragraph">
+                High congestion detected around Suntec Convention &amp; Downtown Core due to evening exhibition events. Lots depleting rapidly. Switching to public transit is recommended.
+              </p>
+            </div>
+            <div class="promoted-alert-box">
+              <span class="promoted-tag">Promoted</span>
+              <span class="promoted-title">Shell V-Power / ComfortDelGro — $5 Off Ride</span>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- Right 4-Column Zone: High Density Carparks List & Transport Alternatives -->
+        <aside class="dashboard-aside-col">
+          
+          <!-- Nearby Carparks Card Container -->
+          <div class="density-card-container">
+            <div class="density-card-header">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="density-header-title">Nearby Carparks</span>
+                <span class="radius-badge-pill" id="carparks-count-badge">3 FOUND (800M)</span>
+              </div>
+              <div style="font-size:10px; color:var(--color-text-muted); font-weight:700; display:flex; align-items:center; gap:2px;">
+                <span class="material-symbols-outlined" style="font-size:13px; color:#10b981;">check_circle</span>
+                <span>GovTech</span>
+              </div>
+            </div>
+
+            <div class="carparks-list-scroll" id="carparks-list-container">
+              <!-- Dynamically populated via app.js -->
+            </div>
+          </div>
+
+          <!-- Transport Alternatives Card Component -->
+          <div class="transport-alternatives-card">
+            <div class="transport-card-header">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:16px; color:var(--color-lta-blue);">directions_transit</span>
+                <span class="density-header-title">Transport Alternatives</span>
+              </div>
+              <span style="font-size:10px; color:#15803d; font-weight:800; background:#dcfce7; padding:2px 6px; border-radius:4px;">FAST &amp; ECO</span>
+            </div>
+
+            <div class="transport-card-body">
+              <div class="mrt-dense-row">
+                <div class="mrt-badge-square ns">NS22</div>
+                <div class="mrt-dense-text">
+                  <div class="mrt-dense-name">Orchard MRT</div>
+                  <div class="mrt-dense-meta">North South Line • 350m (4 min walk)</div>
+                </div>
+                <div class="mrt-dense-fare">$0.95 est.</div>
+              </div>
+
+              <div class="mrt-dense-row">
+                <div class="mrt-badge-square te">TE14</div>
+                <div class="mrt-dense-text">
+                  <div class="mrt-dense-name">Orchard Blvd MRT</div>
+                  <div class="mrt-dense-meta">Thomson-East Coast Line • 500m (6 min walk)</div>
+                </div>
+                <div class="mrt-dense-fare">$1.05 est.</div>
+              </div>
+
+              <div class="mrt-dense-row">
+                <div class="mrt-badge-square dt">DT15</div>
+                <div class="mrt-dense-text">
+                  <div class="mrt-dense-name">Promenade MRT</div>
+                  <div class="mrt-dense-meta">Downtown &amp; Circle Lines • 250m (3 min walk)</div>
+                </div>
+                <div class="mrt-dense-fare">$1.68 est.</div>
+              </div>
+
+              <!-- Bus Stops Section -->
+              <div class="bus-stops-dense-section">
+                <div class="bus-dense-header">
+                  <span>Bus Stops Within 300m</span>
+                  <span style="color:var(--color-lta-blue);">Live Arrivals</span>
+                </div>
+                <div class="bus-stop-dense-title">
+                  <span>Opp Somerset Stn (09038)</span>
+                  <span style="color:var(--color-text-muted); font-size:10px;">120m</span>
+                </div>
+                <div class="bus-pills-wrap">
+                  <span class="bus-pill-dense">7</span>
+                  <span class="bus-pill-dense">14</span>
+                  <span class="bus-pill-dense">16</span>
+                  <span class="bus-pill-dense">65</span>
+                  <span class="bus-pill-dense">106</span>
+                  <span class="bus-pill-dense">111</span>
+                  <span class="bus-pill-dense">123</span>
+                  <span class="bus-pill-dense">175</span>
+                </div>
+              </div>
+
+              <button onclick="switchTab('routes')" style="width:100%; height:34px; background:var(--color-surface-subtle); border:1px solid var(--color-border); border-radius:var(--radius-sm); font-size:11px; font-weight:700; color:var(--color-lta-blue); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; margin-top:4px;">
+                <span>View Full Multimodal Route Comparison</span>
+                <span class="material-symbols-outlined" style="font-size:14px;">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+
+        </aside>
+
+      </main>
+
+    </div>
+
+    <!-- ====================================================================
+         SCREEN 2: CARPARK DETAIL & CONGESTION INTEL
+         ==================================================================== -->
+    <div class="screen-view" id="view-intel" role="region" aria-label="Carpark Detail & Congestion Intel Screen">
+      
+      <!-- Intel Header Bar -->
+      <div style="background:#ffffff; border-bottom:1px solid var(--color-border); padding:10px 16px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          <button class="icon-button" style="background:#f1f5f9; color:var(--color-text-main); border:1px solid var(--color-border);" onclick="switchTab('map')" aria-label="Go Back to Map">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div style="min-width:0;">
+            <h2 id="intel-carpark-name" style="font-size:15px; font-weight:800; color:var(--color-text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Suntec City Basement (Zone West)</h2>
+            <div id="intel-carpark-meta" style="font-size:11px; color:var(--color-text-muted); display:flex; align-items:center; gap:4px;">
+              <span class="material-symbols-outlined" style="font-size:13px; color:var(--color-lta-blue);">near_me</span>
+              <span>180m away · 3 min walk</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="icon-button" style="background:#f1f5f9; color:var(--color-text-main); border:1px solid var(--color-border);" id="btn-bookmark-carpark" onclick="toggleBookmarkSelectedCarpark()" aria-label="Bookmark Carpark">
+            <span class="material-symbols-outlined">bookmark</span>
+          </button>
+          <button class="icon-button" style="background:#f1f5f9; color:var(--color-text-main); border:1px solid var(--color-border);" onclick="showToast('Live status link copied!')" aria-label="Share Carpark">
+            <span class="material-symbols-outlined">share</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Intel Content -->
+      <main class="detail-content-wrapper">
+        
+        <!-- AI Insight Panel ("Explain This") -->
+        <section class="ai-insight-panel" id="ai-insight-box">
+          <div class="ai-insight-header">
+            <div class="ai-title-wrap">
+              <span class="material-symbols-outlined" style="color:#16a34a;">auto_awesome</span>
+              <span>LTA AI Mobility Advisor</span>
+            </div>
+            <button class="btn-explain-ai" id="btn-explain-ai-trigger" onclick="explainCarparkSituation()">
+              <span class="material-symbols-outlined" style="font-size:15px;">psychology</span>
+              Explain This (AI)
+            </button>
+          </div>
+          <div class="ai-insight-body" id="ai-insight-result">
+            <p style="font-size:12px; color:#334155;">
+              Click <strong>"Explain This (AI)"</strong> to receive a real-time assessment of parking probability, event crowd impact, and multi-modal transport guidance powered by Gemini 3.8 Flash.
+            </p>
+          </div>
+        </section>
+
+        <!-- Real-Time Occupancy Gauge Card -->
+        <section class="occupancy-gauge-card" id="real-time-occupancy-card">
+          <div class="occupancy-gauge-header">
+            <div>
+              <span class="gauge-subtitle">Real-Time Occupancy</span>
+              <div class="gauge-big-title tabular-nums" id="intel-big-lots">142 Lots Open</div>
+              <p class="gauge-desc" id="intel-lot-desc">30% capacity remaining · Ample spaces</p>
+            </div>
+            <div class="density-status-badge green" id="intel-status-pill">
+              <span>PLENTY (>50%)</span>
+            </div>
+          </div>
+
+          <!-- Progress Meter -->
+          <div class="meter-bar-wrapper">
+            <div class="meter-track">
+              <div class="meter-fill ample" id="intel-meter-fill" style="width: 30%;"></div>
+            </div>
+            <div class="meter-labels-row">
+              <span>High (&lt;10%)</span>
+              <span id="intel-meter-text" style="color:#059669; font-weight:700;">142 / 510 total</span>
+              <span>Vacant (510)</span>
+            </div>
+          </div>
+
+          <!-- Vehicle Type Breakdown Grid -->
+          <div class="vehicle-grid">
+            <div class="vehicle-cell">
+              <div style="display:flex; align-items:center;">
+                <div class="vehicle-icon-box">
+                  <span class="material-symbols-outlined">directions_car</span>
+                </div>
+                <div class="vehicle-text-block">
+                  <span class="vehicle-type-name">Cars</span>
+                  <div class="vehicle-count-val tabular-nums" id="breakdown-cars-val">124</div>
+                </div>
+              </div>
+              <span class="vehicle-cap-val">/ 450</span>
+            </div>
+
+            <div class="vehicle-cell">
+              <div style="display:flex; align-items:center;">
+                <div class="vehicle-icon-box">
+                  <span class="material-symbols-outlined" style="color:#059669;">two_wheeler</span>
+                </div>
+                <div class="vehicle-text-block">
+                  <span class="vehicle-type-name">Motorcycles</span>
+                  <div class="vehicle-count-val tabular-nums" id="breakdown-motor-val">18</div>
+                </div>
+              </div>
+              <span class="vehicle-cap-val">/ 60</span>
+            </div>
+
+            <div class="vehicle-cell">
+              <div style="display:flex; align-items:center;">
+                <div class="vehicle-icon-box">
+                  <span class="material-symbols-outlined" style="color:#0284c7;">ev_station</span>
+                </div>
+                <div class="vehicle-text-block">
+                  <span class="vehicle-type-name">EV Chargers</span>
+                  <div class="vehicle-count-val tabular-nums" id="breakdown-ev-val" style="color:#0284c7;">6</div>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <span class="vehicle-cap-val">/ 8 bays</span>
+                <div style="font-size:9px; color:#0284c7; font-weight:700;">50kW DC</div>
+              </div>
+            </div>
+
+            <div class="vehicle-cell" style="opacity:0.85;">
+              <div style="display:flex; align-items:center;">
+                <div class="vehicle-icon-box">
+                  <span class="material-symbols-outlined" style="color:#94a3b8;">rv_hookup</span>
+                </div>
+                <div class="vehicle-text-block">
+                  <span class="vehicle-type-name">Heavy</span>
+                  <div class="vehicle-count-val tabular-nums" style="color:#64748b;">0</div>
+                </div>
+              </div>
+              <span style="font-size:9px; color:#be123c; background:#fee2e2; border:1px solid #fecaca; padding:2px 6px; border-radius:4px; font-weight:700;">Restricted</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Charges & Parking Fee Structure -->
+        <section class="charges-card">
+          <div class="charges-header">
+            <div class="charges-title-wrap">
+              <span class="material-symbols-outlined" style="color:var(--color-lta-blue);">payments</span>
+              <span>Charges &amp; Parking Fee</span>
+            </div>
+            <span class="grace-badge">Grace: 10 mins free</span>
+          </div>
+
+          <div class="rate-tier-row">
+            <div>
+              <div class="rate-tier-name">Mon – Fri (7:00 AM – 5:00 PM)</div>
+              <div class="rate-tier-sub">Calculated per half-hour block</div>
+            </div>
+            <div>
+              <div class="rate-tier-price">$2.40</div>
+              <div class="rate-tier-calc">1st hr · $1.20 / 30m thereafter</div>
+            </div>
+          </div>
+
+          <div class="rate-tier-row">
+            <div>
+              <div class="rate-tier-name">Mon – Fri (5:00 PM – 7:00 AM)</div>
+              <div class="rate-tier-sub">Fixed per-entry night tariff</div>
+            </div>
+            <div>
+              <div class="rate-tier-price">$3.30</div>
+              <div class="rate-tier-calc">Per entry charge</div>
+            </div>
+          </div>
+
+          <div class="rate-tier-row">
+            <div>
+              <div class="rate-tier-name">Weekends &amp; Public Holidays</div>
+              <div class="rate-tier-sub">Standard retail rate tier</div>
+            </div>
+            <div>
+              <div class="rate-tier-price">$2.60</div>
+              <div class="rate-tier-calc">1st 2 hrs · $1.30 / sub hr</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Action Controls -->
+        <div class="sticky-bottom-action-bar">
+          <button class="btn-alt-routes" onclick="switchTab('routes')">
+            <span class="material-symbols-outlined" style="font-size:16px;">alt_route</span>
+            Alt Routes
+          </button>
+          <button class="btn-start-nav" onclick="startGpsNavigation()">
+            <span class="material-symbols-outlined" style="font-size:18px;">navigation</span>
+            Start GPS Navigation
+          </button>
+        </div>
+
+      </main>
+
+    </div>
+
+    <!-- ====================================================================
+         SCREEN 3: SMART ROUTE ALTERNATIVES
+         ==================================================================== -->
+    <div class="screen-view" id="view-routes" role="region" aria-label="Smart Route Alternatives Screen">
+      
+      <!-- Routes Header Bar -->
+      <div style="background:#ffffff; border-bottom:1px solid var(--color-border); padding:10px 16px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          <button class="icon-button" style="background:#f1f5f9; color:var(--color-text-main); border:1px solid var(--color-border);" onclick="switchTab('map')" aria-label="Go Back to Map">
+            <span class="material-symbols-outlined">arrow_back</span>
+          </button>
+          <div style="min-width:0;">
+            <h2 style="font-size:15px; font-weight:800; color:var(--color-text-main);">Smart Route Alternatives</h2>
+            <p id="routes-dest-subtitle" style="font-size:11px; color:var(--color-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Destination: Suntec City (Postal: 039594)</p>
+          </div>
+        </div>
+        <button class="icon-button" style="background:#f1f5f9; color:var(--color-text-main); border:1px solid var(--color-border);" onclick="showToast('Transit preferences synchronized')" aria-label="Route Settings">
+          <span class="material-symbols-outlined">tune</span>
+        </button>
+      </div>
+
+      <!-- Routes Content Canvas -->
+      <main class="routes-container">
+        
+        <!-- Carpark Congestion Alert Banner -->
+        <section class="congestion-alert-banner">
+          <div style="width:34px; height:34px; border-radius:8px; background:#fee2e2; display:flex; align-items:center; justify-content:center; color:#b91c1c; flex-shrink:0;">
+            <span class="material-symbols-outlined">warning</span>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:10px; font-weight:800; color:#b91c1c; text-transform:uppercase; letter-spacing:0.04em;">
+              CRITICAL CONGESTION WARNING
+            </div>
+            <p style="font-size:12px; color:#450a0a; margin-top:2px; line-height:1.4;">
+              Destination carparks are near maximum capacity! Switching to public transit or ride-hailing saves an estimated <strong style="color:#15803d;">25 mins</strong> of queue delay.
+            </p>
+          </div>
+        </section>
+
+        <!-- Option 1: Drive & Park -->
+        <article class="transit-option-card">
+          <div class="option-header-row">
+            <div class="option-icon-title">
+              <div class="option-icon-box">
+                <span class="material-symbols-outlined">directions_car</span>
+              </div>
+              <div>
+                <h3 class="option-title-text">Drive &amp; Park (Suntec West)</h3>
+                <div style="font-size:10px; color:#dc2626; font-weight:700;">Critical (&lt;10% lots remaining)</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div class="option-duration-stat red tabular-nums">32 <span style="font-size:11px; color:#64748b; font-weight:600;">min</span></div>
+              <div class="option-meta-sub">Est. Arrival</div>
+            </div>
+          </div>
+
+          <div class="option-cost-grid">
+            <div class="cost-box">
+              <span class="cost-box-label">Estimated Cost</span>
+              <div class="cost-box-value">$9.60</div>
+              <span class="cost-box-note">$7.20 park + $2.40 ERP</span>
+            </div>
+            <div class="cost-box">
+              <span class="cost-box-label">Queue Delay</span>
+              <div class="cost-box-value" style="color:#dc2626;">+15 min</div>
+              <span class="cost-box-note">Ramp bottleneck</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Option 2: Taxi / Ride-hailing -->
+        <article class="transit-option-card">
+          <div class="option-header-row">
+            <div class="option-icon-title">
+              <div class="option-icon-box taxi-box">
+                <span class="material-symbols-outlined">local_taxi</span>
+              </div>
+              <div>
+                <h3 class="option-title-text">Taxi / Ride-hailing (Grab / CDG Zig)</h3>
+                <div class="option-meta-sub">Pick-up ETA: 3 mins · Drop-off at Tower 1</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div class="option-duration-stat blue tabular-nums">18 <span style="font-size:11px; color:#64748b; font-weight:600;">min</span></div>
+              <div style="font-size:10px; color:#15803d; font-weight:700;">Fastest Direct</div>
+            </div>
+          </div>
+
+          <div class="option-cost-grid">
+            <div class="cost-box">
+              <span class="cost-box-label">Estimated Cost</span>
+              <div class="cost-box-value">$16.50 – $19.00</div>
+              <span class="cost-box-note">Standard pricing</span>
+            </div>
+            <div style="display:flex; align-items:center;">
+              <button onclick="showToast('Connecting to CDG Zig / Grab booking...')" style="width:100%; height:36px; background:var(--color-lta-blue); color:#fff; border:none; border-radius:6px; font-weight:700; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px;">
+                <span>Book Ride</span>
+                <span class="material-symbols-outlined" style="font-size:13px;">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Option 3: Public Transport (Recommended Eco) -->
+        <article class="transit-option-card recommended-eco">
+          <div class="option-header-row">
+            <div class="option-icon-title">
+              <div class="option-icon-box transit-mrt">
+                <span class="material-symbols-outlined">directions_transit</span>
+              </div>
+              <div>
+                <h3 class="option-title-text">Public Transport (MRT &amp; Bus)</h3>
+                <div style="display:inline-flex; align-items:center; gap:3px; font-size:9px; background:#dcfce7; border:1px solid #bbf7d0; color:#15803d; padding:1px 5px; border-radius:10px; font-weight:800;">
+                  <span>RECOMMENDED ECO &amp; FAST</span>
+                </div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div class="option-duration-stat green tabular-nums">24 <span style="font-size:11px; color:#64748b; font-weight:600;">min</span></div>
+              <div style="font-size:10px; color:#15803d; font-weight:700;">Save 25 min wait</div>
+            </div>
+          </div>
+
+          <div class="option-cost-grid" style="background:#f0fdf4; border-radius:8px; padding:8px;">
+            <div>
+              <span class="cost-box-label">Total Transit Fare</span>
+              <div class="cost-box-value" style="color:#15803d;">$1.68</div>
+              <span class="cost-box-note">Adult card fare</span>
+            </div>
+            <div style="text-align:right;">
+              <span class="cost-box-label">Carbon Savings</span>
+              <div class="cost-box-value" style="color:var(--color-text-main);">-1.8 kg CO₂</div>
+              <span style="font-size:9px; color:#15803d; font-weight:700;">Zero queue time</span>
+            </div>
+          </div>
+
+          <!-- MRT Station List -->
+          <div style="margin-top:10px;" id="routes-mrt-list">
+            <!-- Populated via app.js -->
+          </div>
+
+          <!-- Bus Stops List -->
+          <div style="margin-top:10px;" id="routes-bus-list">
+            <!-- Populated via app.js -->
+          </div>
+
+          <button onclick="openTransitGuideModal()" style="width:100%; height:38px; margin-top:10px; background:#15803d; color:#fff; border:none; border-radius:6px; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
+            <span class="material-symbols-outlined" style="font-size:16px;">map</span>
+            <span>Step-by-Step Transit Guide</span>
+          </button>
+        </article>
+
+      </main>
+
+    </div>
+
+    <!-- ====================================================================
+         SCREEN 4: PARKSMART PREMIUM SUBSCRIPTION
+         ==================================================================== -->
+    <div class="screen-view" id="view-premium" role="region" aria-label="ParkSmart Premium Subscription Screen">
+      
+      <!-- Premium Top Bar -->
+      <div style="background:#ffffff; border-bottom:1px solid var(--color-border); padding:10px 16px; display:flex; align-items:center; justify-content:space-between;">
+        <div class="header-brand">
+          <div class="header-lta-badge">LTA</div>
+          <h2 style="font-size:15px; font-weight:800; color:var(--color-text-main);">ParkSmart Pro</h2>
+        </div>
+        <button class="icon-button" style="background:#f1f5f9; color:var(--color-text-main); border:1px solid var(--color-border);" onclick="switchTab('map')" aria-label="Dismiss">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+
+      <main class="premium-canvas">
+        <div class="premium-crown-glow">
+          <span class="material-symbols-outlined" style="font-size:28px;">workspace_premium</span>
+        </div>
+
+        <h2 class="premium-hero-title">Upgrade to ParkSmart Pro</h2>
+        <p class="premium-hero-desc">Advanced real-time parking predictive intelligence across Singapore.</p>
+
+        <!-- Bento Value List -->
+        <section class="pro-bento-card">
+          <div class="pro-feature-row">
+            <div class="pro-feature-icon" style="background:#e0f2fe; color:var(--color-lta-blue);">
+              <span class="material-symbols-outlined">block</span>
+            </div>
+            <div>
+              <div class="pro-feature-title">100% Ad-Free Experience</div>
+              <p class="pro-feature-desc">Remove all sponsored placements across map routes and lot views.</p>
+            </div>
+          </div>
+
+          <div class="pro-feature-row">
+            <div class="pro-feature-icon" style="background:#dcfce7; color:#15803d;">
+              <span class="material-symbols-outlined">alt_route</span>
+            </div>
+            <div>
+              <div class="pro-feature-title">Dynamic Route Optimization</div>
+              <p class="pro-feature-desc">Automatic rerouting when destination carparks drop below 10% capacity.</p>
+            </div>
+          </div>
+
+          <div class="pro-feature-row">
+            <div class="pro-feature-icon" style="background:#fef3c7; color:#b45309;">
+              <span class="material-symbols-outlined">notifications_active</span>
+            </div>
+            <div>
+              <div class="pro-feature-title">Critical Lot Alerts</div>
+              <p class="pro-feature-desc">Instant push notifications for lot shortages and ERP surge changes.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Subscription Pricing Plans -->
+        <section class="pricing-options-wrap" id="pricing-selector-group">
+          <!-- Annual Plan -->
+          <div class="pricing-plan-card selected" id="plan-card-annual">
+            <div class="save-badge">SAVE 40%</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="radio-custom-circle">
+                <div class="radio-inner-dot"></div>
+              </div>
+              <div>
+                <div style="font-size:13px; font-weight:800; color:var(--color-text-main);">Annual Pass</div>
+                <div style="font-size:10px; color:var(--color-text-muted);">Billed annually at $35.88/yr</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:18px; font-weight:800; color:var(--color-text-main);">$2.99</div>
+              <span style="font-size:10px; color:var(--color-text-muted);">/ month</span>
+            </div>
+          </div>
+
+          <!-- Monthly Plan -->
+          <div class="pricing-plan-card" id="plan-card-monthly">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div class="radio-custom-circle">
+                <div class="radio-inner-dot"></div>
+              </div>
+              <div>
+                <div style="font-size:13px; font-weight:800; color:var(--color-text-main);">Monthly Plan</div>
+                <div style="font-size:10px; color:var(--color-text-muted);">Flexible, cancel anytime</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:18px; font-weight:800; color:var(--color-text-main);">$4.99</div>
+              <span style="font-size:10px; color:var(--color-text-muted);">/ month</span>
+            </div>
+          </div>
+        </section>
+
+        <button onclick="showToast('Starting 7-day free trial on test account...')" style="width:100%; height:44px; background:var(--color-lta-blue); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <span>Start 7-Day Free Trial</span>
+          <span class="material-symbols-outlined" style="font-size:16px;">arrow_forward</span>
+        </button>
+
+      </main>
+
+    </div>
+
+    <!-- ====================================================================
+         HIGH DENSITY OFFICIAL FOOTER BAR
+         ==================================================================== -->
+    <footer class="lta-dense-footer">
+      <div id="footer-data-refresh-text">
+        Data Refresh: 2026-09-04 16:10:46 SGT • Source: LTA DataMall
+      </div>
+      <div class="footer-compliance-group">
+        <span>Accessibility: WCAG 2.1 AA Compliant</span>
+        <span>•</span>
+        <span>Land Transport Authority © 2026</span>
+      </div>
+    </footer>
+
+    <!-- ====================================================================
+         SHARED BOTTOM NAVIGATION BAR (Mobile Viewports)
+         ==================================================================== -->
+    <nav class="bottom-nav" aria-label="Main App Navigation">
+      <button class="nav-item active" data-tab="map" id="nav-btn-map" aria-label="Map Discovery">
+        <span class="material-symbols-outlined">explore</span>
+        <span>Map</span>
+      </button>
+      <button class="nav-item" data-tab="intel" id="nav-btn-intel" aria-label="Carpark Detail & Intel">
+        <span class="material-symbols-outlined">analytics</span>
+        <span>Intel</span>
+      </button>
+      <button class="nav-item" data-tab="routes" id="nav-btn-routes" aria-label="Smart Route Alternatives">
+        <span class="material-symbols-outlined">alt_route</span>
+        <span>Routes</span>
+      </button>
+      <button class="nav-item" data-tab="premium" id="nav-btn-premium" aria-label="ParkSmart Premium">
+        <span class="material-symbols-outlined">workspace_premium</span>
+        <span>Premium</span>
+      </button>
+    </nav>
+
+    <!-- App Toast Notification -->
+    <div class="toast-notice" id="app-toast" role="status" aria-live="polite"></div>
+
+    <!-- Step-by-Step Transit Guide Modal Drawer -->
+    <div class="modal-overlay" id="transit-guide-modal" onclick="if(event.target===this) closeTransitGuideModal()">
+      <div class="modal-drawer">
+        <div class="drawer-drag-handle"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="color:#15803d;">directions_transit</span>
+            <h3 style="font-size:14px; font-weight:800;">Step-by-Step Transit Guide</h3>
+          </div>
+          <button onclick="closeTransitGuideModal()" class="icon-button" style="width:28px; height:28px; background:#f1f5f9; color:var(--color-text-main); border:1px solid var(--color-border);">
+            <span class="material-symbols-outlined" style="font-size:16px;">close</span>
+          </button>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:10px; font-size:12px;">
+          <div style="display:flex; gap:10px;">
+            <div style="width:22px; height:22px; border-radius:50%; background:var(--color-lta-blue); color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; flex-shrink:0;">1</div>
+            <div>
+              <strong>Walk 3 mins (250m) to Promenade MRT Station</strong>
+              <p style="font-size:11px; color:var(--color-text-muted);">Enter via Exit C (Millenia Walk underground linkway).</p>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <div style="width:22px; height:22px; border-radius:50%; background:#005ec4; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; flex-shrink:0;">2</div>
+            <div>
+              <strong>Board Downtown Line (DT) towards Bukit Panjang</strong>
+              <p style="font-size:11px; color:var(--color-text-muted);">Trains arrive every 2-3 mins during peak hours.</p>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <div style="width:22px; height:22px; border-radius:50%; background:#15803d; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; flex-shrink:0;">3</div>
+            <div>
+              <strong>Alight directly at Destination</strong>
+              <p style="font-size:11px; color:var(--color-text-muted);">Total fare: $1.68 with zero parking queue delay.</p>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="closeTransitGuideModal()" style="width:100%; height:38px; margin-top:16px; background:var(--color-lta-blue); color:#fff; border:none; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer;">
+          Got It
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Main JavaScript Application Logic -->
+  <script src="/app.js"></script>
+</body>
+</html>
